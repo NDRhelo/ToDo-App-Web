@@ -2,6 +2,8 @@
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { useState, useEffect } from "react";
+import { Toaster, useToast } from "./components/toast";
+import { AuthScreen } from "./components/auth-screen";
 type Tarea = {
   id: number;
   titulo: string;
@@ -9,15 +11,16 @@ type Tarea = {
 };
 
 export default function Home() {
+  const { toasts, notify, dismiss } = useToast();
   const [usuario, setUsuario] = useState<User | null>(null);
   const [tarea, setTarea] = useState("");
   const [listaTareas, setListaTareas] = useState<Tarea[]>([]);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [loadingSession, setLoadingSession] = useState(true);
   useEffect(() => {
     async function obtenerSesion() {
       const { data, error } = await supabase.auth.getSession();
 
+      setLoadingSession(false);
       if (error) {
         console.error("Error al recuperar la sesión:", error.message);
         return;
@@ -79,7 +82,7 @@ export default function Home() {
     }
 
     if (!usuario) {
-      alert("Debes iniciar sesión para agregar tareas");
+      notify("Debes iniciar sesión para agregar tareas");
       return;
     }
 
@@ -93,7 +96,7 @@ export default function Home() {
 
     if (error) {
       console.error("Error al guardar la tarea:", error.message);
-      alert("No se pudo guardar la tarea");
+      notify("No se pudo guardar la tarea");
       return;
     }
 
@@ -119,7 +122,7 @@ export default function Home() {
 
     if (error) {
       console.error("Error al actualizar la tarea:", error.message);
-      alert("No se pudo actualizar la tarea");
+      notify("No se pudo actualizar la tarea");
       return;
     }
 
@@ -143,7 +146,7 @@ export default function Home() {
 
     if (error) {
       console.error("Error al eliminar la tarea:", error.message);
-      alert("No se pudo eliminar la tarea");
+      notify("No se pudo eliminar la tarea");
       return;
     }
 
@@ -169,62 +172,24 @@ export default function Home() {
 
     setListaTareas(tareasConvertidas);
   }
-  async function registrarUsuario() {
-    if (email.trim() === "" || password === "") {
-      alert("Ingresa tu correo y contraseña");
-      return;
-    }
-
-    const { data, error } = await supabase.auth.signUp({
-      email: email,
-      password: password,
-    });
-
-    if (error) {
-      alert("Error al registrarse: " + error.message);
-      return;
-    }
-
-    console.log("Usuario registrado:", data.user?.id);
-    alert("Registro solicitado. Revisa tu correo para confirmar tu cuenta.");
-  }
-  async function iniciarSesion() {
-    if (email.trim() === "" || password === "") {
-      alert("Ingresa tu correo y contraseña");
-      return;
-    }
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email,
-      password: password,
-    });
-
-    if (error) {
-      alert("Error al iniciar sesión: " + error.message);
-      return;
-    }
-
-    console.log("Usuario que inició sesión:", data.user);
-
-    setUsuario(data.user);
-
-    setPassword("");
-    alert("¡Has iniciado sesión correctamente!");
-  }
   async function cerrarSesion() {
     const { error } = await supabase.auth.signOut();
 
     if (error) {
-      alert("Error al cerrar sesión: " + error.message);
+      notify("Error al cerrar sesión: " + error.message);
       return;
     }
 
     setUsuario(null);
     setListaTareas([]);
-    alert("Has cerrado sesión correctamente");
+    notify("Has cerrado sesión correctamente", "success");
   }
   return (
     <div className="min-h-screen bg-zinc-950 font-sans text-zinc-100">
+      <Toaster toasts={toasts} dismiss={dismiss} />
+      {loadingSession ? (
+        <main className="flex min-h-screen items-center justify-center text-sm text-zinc-400" role="status">Cargando tu espacio…</main>
+      ) : !usuario ? <AuthScreen notify={notify} /> : (
       <main className="mx-auto flex min-h-screen w-full max-w-2xl flex-col px-6 py-12">
 
         <div className="flex flex-col gap-6 rounded-2xl border border-zinc-800 bg-zinc-900 p-8 shadow-2xl">
@@ -234,41 +199,6 @@ export default function Home() {
           <p className="text-zinc-400">
             Organiza tus tareas y mantén el control de tus pendientes.
           </p>
-          {!usuario && (
-            <div className="flex flex-col gap-4">
-              <h2 className="text-xl font-bold text-white">
-                Crear una cuenta
-              </h2>
-
-              <input
-                type="email"
-                placeholder="Correo electrónico"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 p-3 text-white placeholder:text-zinc-400 outline-none focus:border-violet-500"
-              />
-
-              <input
-                type="password"
-                placeholder="Contraseña"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 p-3 text-white placeholder:text-zinc-400 outline-none focus:border-violet-500"
-              />
-              <button
-                className="bg-violet-600 hover:bg-violet-500 text-white px-4 py-3 rounded-lg cursor-pointer transition-colors"
-                onClick={registrarUsuario}
-              >
-                Registrarse
-              </button>
-              <button
-                className="bg-violet-700 hover:bg-violet-600 text-white px-4 py-3 rounded-lg cursor-pointer transition-colors"
-                onClick={iniciarSesion}
-              >
-                Iniciar sesión
-              </button>
-            </div>
-          )}
           {usuario && (
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
@@ -375,6 +305,7 @@ export default function Home() {
           )}
         </div>
       </main >
+      )}
     </div >
   );
 }
