@@ -1,4 +1,4 @@
-import { act, render, screen, within, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceShell } from "@/app/components/workspace/workspace-shell";
@@ -10,6 +10,9 @@ import type { Board } from "@/lib/board-types";
 vi.mock("@/lib/boards", () => ({
   listBoards: vi.fn(), createBoard: vi.fn(), renameBoard: vi.fn(), deleteBoard: vi.fn(), createSubtask: vi.fn(), setSubtaskCompleted: vi.fn(), deleteSubtask: vi.fn(),
 }));
+// jsdom does not implement the native dialog top layer or keyboard focus trap.
+HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
+HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
 let stored: Board[];
 beforeEach(() => {
   vi.resetAllMocks();
@@ -161,6 +164,50 @@ describe("Espacio de trabajo", () => {
     expect(screen.queryByText("Repasar matemáticas")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Tableros" }));
     expect(screen.queryByText("Repasar matemáticas")).not.toBeInTheDocument();
+  });
+
+  it("limita la tarjeta a cuatro tareas y abre todas con el mismo color y progreso", async () => {
+    stored[0].tasks.push({ id: "fifth", title: "Quinta tarea", completed: false });
+    const { user } = await setup();
+    const card = board(stored[0].title);
+    expect(within(card).getAllByRole("checkbox")).toHaveLength(4);
+    expect(screen.queryByText("Quinta tarea")).not.toBeInTheDocument();
+    const trigger = within(card).getByRole("button", { name: "Ver todas las tareas (5)" });
+    await user.click(trigger);
+    const modal = screen.getByRole("dialog", { name: stored[0].title });
+    expect(within(modal).getAllByRole("checkbox")).toHaveLength(5);
+    expect(modal.style.getPropertyValue("--board-accent")).toBe(card.style.getPropertyValue("--board-accent"));
+    expect(document.body.style.overflow).toBe("hidden");
+    await user.click(within(modal).getByRole("checkbox", { name: "Quinta tarea" }));
+    expect(within(card).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "40");
+    await user.click(within(modal).getByRole("button", { name: "Cerrar" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(document.body.style.overflow).toBe("");
+    expect(within(board("Compras")).queryByRole("button", { name: /Ver todas/ })).not.toBeInTheDocument();
+  });
+
+  it("agrega y elimina tareas desde el modal, conserva errores y cierra al recibir Escape nativo", async () => {
+    stored[0].tasks.push({ id: "fifth", title: "Quinta tarea", completed: false });
+    const { user } = await setup();
+    await user.click(screen.getByRole("button", { name: "Ver todas las tareas (5)" }));
+    const modal = screen.getByRole("dialog");
+    await user.click(within(modal).getByRole("button", { name: "Agregar tarea" }));
+    await user.type(within(modal).getByRole("textbox", { name: "Nueva tarea" }), "Sexta tarea{Enter}");
+    expect(within(modal).getAllByRole("checkbox")).toHaveLength(6);
+    expect(within(board(stored[0].title)).getAllByRole("checkbox")).toHaveLength(4);
+    vi.mocked(api.deleteSubtask).mockRejectedValueOnce(new Error("Offline"));
+    await user.click(within(modal).getByRole("button", { name: "Eliminar tarea: Sexta tarea" }));
+    await user.click(within(modal).getByRole("button", { name: "Confirmar eliminación de tarea" }));
+    expect(within(modal).getByRole("alert")).toHaveTextContent("No se pudo eliminar");
+    expect(within(modal).getByRole("checkbox", { name: "Sexta tarea" })).toBeVisible();
+    await user.click(within(modal).getByRole("button", { name: "Confirmar eliminación de tarea" }));
+    expect(within(modal).queryByText("Sexta tarea")).not.toBeInTheDocument();
+    fireEvent(modal, new Event("cancel", { cancelable: true }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Mis tareas" }));
+    expect(screen.getByRole("checkbox", { name: "Quinta tarea" })).toBeVisible();
+    expect(screen.queryByText("Sexta tarea")).not.toBeInTheDocument();
   });
 
   it("rechaza títulos con solo espacios y permite cancelar con Escape", async () => {

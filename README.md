@@ -129,3 +129,16 @@ en subtasks; no requiere una migración nueva.
 Para probar: cancelar un borrado y comprobar que la tarea sigue; confirmar otro
 y comprobar que desaparece de ambas vistas y del resumen. Recargar para verificar
 persistencia. Probar también los filtros y una lista sin coincidencias.
+
+
+Las tarjetas de tablero muestran hasta cuatro tareas. Si tienen más, “Ver todas
+las tareas” abre un modal con el color del tablero, progreso total y todas sus
+tareas. Permite completar, eliminar y agregar tareas sobre el mismo estado
+compartido. El modal tiene desplazamiento propio, bloqueo del fondo y cierre
+con Cerrar o Escape, y devuelve el foco al abrir/cerrar. El progreso siempre se
+calcula sobre todas las tareas, incluso las ocultas en la tarjeta.
+
+Verificar visualmente en escritorio y móvil: abrir un tablero con cinco tareas,
+recorrer el modal con Tab, cerrarlo con Escape y comprobar el foco; completar,
+agregar y borrar tareas y revisar su persistencia después de recargar. Las pruebas
+usan una simulación del diálogo de jsdom; no verifican la capa modal del navegador.
