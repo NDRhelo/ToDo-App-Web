@@ -108,3 +108,10 @@
   .boardFilter { width:100%; }
   .boardFilter select { flex:1; max-width:none; }
 }
+
+
+.boardCreate { position:relative; }
+.boardCreatePanel { position:absolute; z-index:5; top:calc(100% + 12px); right:0; width:min(360px,calc(100vw - 40px)); margin:0; padding:22px; gap:16px; border:1px solid var(--line); border-radius:12px; background:#202024; box-shadow:0 12px 32px rgb(0 0 0 / 28%); }
+.boardCreatePanel .input { min-height:46px; }
+.boardCreatePanel .actions { justify-content:flex-end; gap:10px; padding-top:4px; }
+@media(max-width:520px) { .boardCreate>.primary { width:100%; } .boardCreatePanel { width:100%; padding:20px; } }

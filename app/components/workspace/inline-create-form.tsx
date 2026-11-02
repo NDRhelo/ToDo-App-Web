@@ -35,14 +35,15 @@ export function InlineCreateForm({ label, placeholder, submitLabel, maxLength, k
       if (success) close();
     } finally { submitting.current = false; setBusy(false); }
   }
-  return <>
+  const content = <>
     <button ref={trigger} disabled={busy} type="button" className={kind === "board" ? styles.primary : styles.addTask} aria-expanded={open} aria-controls={id} onClick={() => setOpen(!open)}>
       <span aria-hidden="true">＋</span>{kind === "board" ? "Crear tablero" : "Agregar tarea"}
     </button>
-    {open && <form id={id} aria-busy={busy} onSubmit={submit} className={styles.form} onKeyDown={(event) => { if (event.key === "Escape") close(); }}>
+    {open && <form id={id} aria-busy={busy} onSubmit={submit} className={kind === "board" ? `${styles.form} ${styles.boardCreatePanel}` : styles.form} onKeyDown={(event) => { if (event.key === "Escape") close(); }}>
       <label htmlFor={`${id}-title`}>{label}</label>
       <input disabled={busy} autoFocus id={`${id}-title`} className={styles.input} value={title} onChange={(event) => setTitle(event.target.value)} placeholder={placeholder} required maxLength={maxLength} />
       <div className={styles.actions}><button disabled={busy} className={styles.primary} type="submit">{busy ? "Guardando…" : submitLabel}</button><button disabled={busy} className={styles.secondary} type="button" onClick={close}>Cancelar</button></div>
     </form>}
   </>;
+  return kind === "board" ? <div className={styles.boardCreate}>{content}</div> : content;
 }
