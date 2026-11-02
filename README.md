@@ -74,7 +74,7 @@ La vista Tableros consulta `public.boards` y sus `public.subtasks` mediante el c
 
 Los identificadores, el propietario y las fechas se generan en la base de datos. La interfaz cambia solo después de una respuesta confirmada; conserva el texto si falla una escritura y ofrece reintentar si falla la carga. Las cuentas sin tableros muestran un estado vacío: no se insertan ejemplos. `lib/demo-boards.ts` se utiliza exclusivamente como fixture de pruebas.
 
-La navegación Mis tareas conserva su tabla y sus operaciones actuales. Las estadísticas corresponden a la vista seleccionada. El progreso se calcula desde las subtareas confirmadas. Los cambios de otra pestaña se recuperan al recargar; no se utiliza Realtime.
+La navegación Mis tareas muestra las mismas subtasks de los tableros, agrupadas por tablero. Las tareas se crean dentro de un tablero; ambas vistas comparten estado y estadísticas. No se consulta la tabla tasks. El progreso se calcula desde las subtareas confirmadas. Los cambios de otra pestaña se recuperan al recargar; no se utiliza Realtime.
 
 - `lib/boards.ts`: consultas y escrituras con las columnas permitidas.
 - `app/hooks/use-boards.ts`: carga, errores y operaciones pendientes.
@@ -91,3 +91,24 @@ Para probar manualmente en localhost:
 6. Comprobar que Mis tareas sigue funcionando.
 
 Las pruebas automatizadas simulan la API y no escriben en Supabase. La verificación real de RLS entre cuentas y de la cascada requiere estas pruebas manuales o una base de integración autorizada.
+
+
+## Flujo único de tareas
+
+Una cuenta nueva comienza sin tableros ni tareas. Primero crea un tablero
+(`boards`) y después agrega sus tareas (`subtasks.board_id`). “Mis tareas”
+reúne esas mismas tareas y permite completarlas; los cambios se reflejan también
+en Tableros. No hay tareas independientes ni datos de ejemplo insertados.
+
+La migración `supabase/migrations/20261102000100_remove_legacy_tasks.sql`
+retira la tabla antigua `public.tasks`. **Elimina los datos de esa tabla**:
+exportarlos y revisar el respaldo antes de aplicarla. No convierte las tareas
+antiguas en subtasks porque no tienen un tablero asignado. Desplegar primero
+esta versión de la app y después aplicar la migración desde Supabase.
+La migración no se ha ejecutado desde este repositorio.
+
+Verificación manual: entrar con una cuenta nueva, crear un tablero, agregar una
+tarea y abrir “Mis tareas”. Completarla y volver a Tableros: debe conservar el
+estado. Recargar y comprobar persistencia. Con otra cuenta, el espacio debe
+estar vacío. Las pruebas automatizadas simulan Supabase; no verifican el
+proyecto remoto.

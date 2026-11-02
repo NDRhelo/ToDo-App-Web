@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { useBoards } from "@/app/hooks/use-boards";
+import { TasksView } from "./tasks-view";
 import { BoardsView } from "./boards-view";
 import styles from "./workspace.module.css";
 
@@ -40,13 +41,13 @@ function WorkspaceSidebar({ view, onNavigate, boardCount, summary, unavailable }
   </aside>;
 }
 
-type WorkspaceProps = { userId: string; email?: string; onSignOut: () => Promise<void>; taskSummary: Summary; children: ReactNode };
+type WorkspaceProps = { userId: string; email?: string; onSignOut: () => Promise<void> };
 
 export function WorkspaceShell(props: WorkspaceProps) {
   return <Workspace key={props.userId} {...props} />;
 }
 
-function Workspace({ userId, email, onSignOut, taskSummary, children }: WorkspaceProps) {
+function Workspace({ userId, email, onSignOut }: WorkspaceProps) {
   const [view, setView] = useState<"boards" | "tasks">("boards");
   const { boards, loading, loadError, operationError, pending, retry, ...actions } = useBoards(userId);
   const [announcement, setAnnouncement] = useState("");
@@ -61,14 +62,14 @@ function Workspace({ userId, email, onSignOut, taskSummary, children }: Workspac
     <a className={styles.skip} href="#workspace-content">Saltar al contenido</a>
     <WorkspaceHeader email={email} onSignOut={onSignOut} />
     <div className={styles.shell}>
-      <WorkspaceSidebar view={view} onNavigate={(next) => { setView(next); setAnnouncement(next === "boards" ? "Vista de tableros" : "Vista de tus tareas guardadas"); }} boardCount={boards.length} unavailable={view === "boards" && (loading || !!loadError)} summary={view === "boards" ? boardSummary : taskSummary} />
+      <WorkspaceSidebar view={view} onNavigate={(next) => { setView(next); setAnnouncement(next === "boards" ? "Vista de tableros" : "Vista de tus tareas guardadas"); }} boardCount={boards.length} unavailable={loading || !!loadError} summary={boardSummary} />
       <main id="workspace-content" className={styles.main}>
         {view === "boards" ? <BoardsView boards={boards} loading={loading} loadError={loadError} operationError={operationError} pending={pending} onRetry={retry}
           onCreate={(title) => announce(actions.create(title), "Tablero guardado.")}
           onRename={(id, title) => announce(actions.rename(id, title), "Nombre guardado.")}
           onDelete={(id) => announce(actions.remove(id), "Tablero y subtareas eliminados.")}
           onAddTask={(id, title) => announce(actions.addTask(id, title), "Subtarea guardada.")}
-          onToggle={(id, taskId) => announce(actions.toggle(id, taskId), "Progreso guardado.")} /> : <div className={styles.legacy}>{children}</div>}
+          onToggle={(id, taskId) => announce(actions.toggle(id, taskId), "Progreso guardado.")} /> : <TasksView boards={boards} loading={loading} loadError={loadError} operationError={operationError} pending={pending} onRetry={retry} onOpenBoards={() => setView("boards")} onToggle={(id, taskId) => announce(actions.toggle(id, taskId), "Progreso guardado.")} />}
         <p role="status" className="sr-only">{announcement}</p>
       </main>
     </div>

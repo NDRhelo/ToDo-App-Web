@@ -2,7 +2,6 @@ import { act, render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceShell } from "@/app/components/workspace/workspace-shell";
-import { ExistingTasksView } from "@/app/components/workspace/existing-tasks-view";
 
 import * as api from "@/lib/boards";
 import { demoBoards } from "@/lib/demo-boards";
@@ -40,9 +39,7 @@ async function setup() {
   const user = userEvent.setup();
   const callbacks = { agregarTarea: vi.fn().mockResolvedValue(undefined), cambiarEstado: vi.fn().mockResolvedValue(undefined), eliminarTarea: vi.fn().mockResolvedValue(undefined) };
   const onSignOut = vi.fn().mockResolvedValue(undefined);
-  render(<WorkspaceShell userId="account-a" email="persona@example.com" onSignOut={onSignOut} taskSummary={{ total: 1, completed: 0 }}>
-    <ExistingTasksView tarea="Tarea real" setTarea={vi.fn()} listaTareas={[{ id: 42, titulo: "Preparar informe", completada: false }]} {...callbacks} />
-  </WorkspaceShell>);
+  render(<WorkspaceShell userId="account-a" email="persona@example.com" onSignOut={onSignOut} />);
   await screen.findByRole("heading", { name: "Mis tableros" });
   await waitFor(() => expect(screen.queryByText("Cargando tus tableros…")).not.toBeInTheDocument());
   return { user, callbacks, onSignOut };
@@ -86,6 +83,29 @@ describe("Espacio de trabajo", () => {
     expect(callbacks.agregarTarea).not.toHaveBeenCalled();
   });
 
+  it("guía una cuenta vacía desde su primer tablero hasta Mis tareas", async () => {
+    stored = [];
+    const { user } = await setup();
+    await user.click(screen.getByRole("button", { name: "Mis tareas" }));
+    expect(screen.getByText("Crea tu primer tablero y agrega tus tareas dentro de él.")).toBeVisible();
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Ir a mis tableros" }));
+    await user.click(screen.getByRole("button", { name: "Crear tablero" }));
+    await user.type(screen.getByRole("textbox", { name: "Nombre del tablero" }), "Personal{Enter}");
+    await user.click(screen.getByRole("button", { name: "Agregar tarea" }));
+    await user.type(screen.getByRole("textbox", { name: "Nueva tarea" }), "Leer{Enter}");
+    await user.click(screen.getByRole("button", { name: "Mis tareas" }));
+    expect(within(screen.getByRole("region", { name: "Personal" })).getByRole("checkbox", { name: "Leer" })).toBeVisible();
+    expect(screen.getByRole("region", { name: "Resumen de mis tareas" })).toHaveTextContent("Total1");
+    await user.click(screen.getByRole("button", { name: "Tableros" }));
+    await user.click(screen.getByLabelText("Opciones de Personal"));
+    await user.click(screen.getByRole("button", { name: "Eliminar tablero" }));
+    await user.click(screen.getByRole("button", { name: "Confirmar eliminación" }));
+    await user.click(screen.getByRole("button", { name: "Mis tareas" }));
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Resumen de mis tareas" })).toHaveTextContent("Total0");
+  });
+
   it("rechaza títulos con solo espacios y permite cancelar con Escape", async () => {
     const { user } = await setup();
     const create = screen.getByRole("button", { name: "Crear tablero" });
@@ -98,20 +118,17 @@ describe("Espacio de trabajo", () => {
     expect(create).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("conserva los cambios guardados al navegar y mantiene las acciones de tareas reales", async () => {
-    const { user, callbacks } = await setup();
+  it("comparte las tareas y sus cambios entre ambas vistas", async () => {
+    const { user } = await setup();
     await user.click(screen.getByRole("checkbox", { name: "Repasar matemáticas" }));
     await user.click(screen.getByRole("button", { name: "Mis tareas" }));
     expect(screen.getByRole("heading", { name: "Mis tareas" })).toBeVisible();
-    expect(screen.getByRole("region", { name: "Resumen de mis tareas" })).toHaveTextContent("Total1");
-    await user.click(screen.getByRole("button", { name: "Agregar tarea" }));
-    await user.click(screen.getByRole("checkbox", { name: "Completar Preparar informe" }));
-    await user.click(screen.getByRole("button", { name: "Eliminar" }));
-    expect(callbacks.agregarTarea).toHaveBeenCalledTimes(1);
-    expect(callbacks.cambiarEstado).toHaveBeenCalledWith(42);
-    expect(callbacks.eliminarTarea).toHaveBeenCalledWith(42);
-    await user.click(screen.getByRole("button", { name: "Tableros" }));
+    expect(screen.getByRole("region", { name: "Resumen de mis tareas" })).toHaveTextContent("Total10");
     expect(screen.getByRole("checkbox", { name: "Repasar matemáticas" })).toBeChecked();
+    await user.click(screen.getByRole("checkbox", { name: "Repasar matemáticas" }));
+    await user.click(screen.getByRole("button", { name: "Tableros" }));
+    expect(screen.getByRole("checkbox", { name: "Repasar matemáticas" })).not.toBeChecked();
+    expect(api.setSubtaskCompleted).toHaveBeenLastCalledWith("math", false);
   });
 
   it("ejecuta el cierre de sesión existente", async () => {
@@ -190,7 +207,7 @@ describe("Espacio de trabajo", () => {
   it("muestra carga sin estadísticas falsas y una cuenta vacía sin insertar ejemplos", async () => {
     let resolve!: (boards: Board[]) => void;
     vi.mocked(api.listBoards).mockReturnValue(new Promise((done) => { resolve = done; }));
-    render(<WorkspaceShell userId="empty" onSignOut={vi.fn()} taskSummary={{ total: 0, completed: 0 }}>Mis tareas</WorkspaceShell>);
+    render(<WorkspaceShell userId="empty" onSignOut={vi.fn()} />);
     expect(screen.getByText("Cargando tus tableros…")).toBeVisible();
     expect(within(summary()).getAllByText("—")).toHaveLength(3);
     expect(screen.queryByText(/Tu espacio está listo/)).not.toBeInTheDocument();
@@ -296,7 +313,7 @@ describe("Espacio de trabajo", () => {
   it("descarta una respuesta pendiente cuando cambia la cuenta", async () => {
     let resolve!: (boards: Board[]) => void;
     vi.mocked(api.listBoards).mockReturnValueOnce(new Promise((done) => { resolve = done; })).mockResolvedValueOnce([]);
-    const props = { onSignOut: vi.fn(), taskSummary: { total: 0, completed: 0 }, children: "Mis tareas" };
+    const props = { onSignOut: vi.fn() };
     const { rerender } = render(<WorkspaceShell userId="a" {...props} />);
     rerender(<WorkspaceShell userId="b" {...props} />);
     await screen.findByText(/Tu espacio está listo/);
@@ -306,7 +323,7 @@ describe("Espacio de trabajo", () => {
   });
 
   it("vuelve a consultar los cambios guardados al remontar el espacio de trabajo", async () => {
-    const props = { userId: "a", onSignOut: vi.fn(), taskSummary: { total: 0, completed: 0 }, children: "Mis tareas" };
+    const props = { userId: "a", onSignOut: vi.fn() };
     const first = render(<WorkspaceShell {...props} />);
     await screen.findByRole("article", { name: "Compras" });
     const user = userEvent.setup();
@@ -322,7 +339,7 @@ describe("Espacio de trabajo", () => {
   it("no aplica una escritura de la cuenta anterior en la nueva sesión", async () => {
     let resolve!: (board: Board) => void;
     vi.mocked(api.createBoard).mockReturnValueOnce(new Promise((done) => { resolve = done; }));
-    const props = { onSignOut: vi.fn(), taskSummary: { total: 0, completed: 0 }, children: "Mis tareas" };
+    const props = { onSignOut: vi.fn() };
     const { rerender } = render(<WorkspaceShell userId="a" {...props} />);
     await screen.findByRole("article", { name: "Compras" });
     const user = userEvent.setup();
