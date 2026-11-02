@@ -12,6 +12,7 @@ export function BoardTasksModal({ board, color, pending, operationError, onClose
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
+  const startedOutside = useRef(false);
   const heading = useId();
   useEffect(() => {
     const element = dialog.current!;
@@ -32,7 +33,16 @@ export function BoardTasksModal({ board, color, pending, operationError, onClose
   const percent = board.tasks.length ? Math.round(completed / board.tasks.length * 100) : 0;
   return createPortal(<div className={`${styles.workspace} ${styles.modalRoot}`}>
     <dialog ref={dialog} className={styles.taskModal} style={{ "--board-accent": color } as CSSProperties}
-      aria-labelledby={heading} onCancel={(event) => { event.preventDefault(); onClose(); }} onClose={onClose}>
+      aria-labelledby={heading} onCancel={(event) => { event.preventDefault(); onClose(); }} onClose={onClose}
+      onPointerDown={(event) => {
+        const bounds = event.currentTarget.getBoundingClientRect();
+        startedOutside.current = event.target === event.currentTarget && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom);
+      }}
+      onClick={(event) => {
+        const bounds = event.currentTarget.getBoundingClientRect();
+        if (startedOutside.current && event.target === event.currentTarget && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom)) onClose();
+        startedOutside.current = false;
+      }}>
       <div className={styles.modalHeader}>
         <div><p className={styles.eyebrow}>Todas las tareas del tablero</p><h2 id={heading}>{board.title}</h2></div>
         <button ref={closeButton} type="button" className={styles.secondary} onClick={onClose}>Cerrar</button>

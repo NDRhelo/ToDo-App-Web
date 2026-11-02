@@ -56,6 +56,21 @@ const board = (name: string) => screen.getByRole("article", { name });
 const summary = () => screen.getByRole("region", { name: "Resumen de tableros" });
 
 describe("Espacio de trabajo", () => {
+  it("abre desde el título y cierra solo al hacer clic fuera del modal", async () => {
+    const { user } = await setup();
+    const trigger = within(board("Compras")).getByRole("button", { name: "Compras" });
+    await user.click(trigger);
+    const modal = screen.getByRole("dialog", { name: "Compras" });
+    vi.spyOn(modal, "getBoundingClientRect").mockReturnValue({ left: 100, right: 500, top: 100, bottom: 500 } as DOMRect);
+    fireEvent.pointerDown(modal, { clientX: 120, clientY: 120 });
+    fireEvent.click(modal, { clientX: 120, clientY: 120 });
+    expect(modal).toBeInTheDocument();
+    fireEvent.pointerDown(modal, { clientX: 20, clientY: 20 });
+    fireEvent.click(modal, { clientX: 20, clientY: 20 });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
   it("carga los tableros guardados y calcula progreso y estadísticas", async () => {
     await setup();
     expect(screen.getAllByRole("article")).toHaveLength(3);

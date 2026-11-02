@@ -15,7 +15,7 @@ export function BoardCard({ board, color, onToggle, onAddTask, onRename, onDelet
   const percent = board.tasks.length ? Math.round(completed / board.tasks.length * 100) : 0;
   return <article className={`${styles.board} ${board.accent === "violet" ? "" : styles[board.accent]}`} style={{ "--board-accent": color } as CSSProperties} aria-label={board.title}>
     <BoardActions busy={pending !== null} board={board} onRename={onRename} onDelete={onDelete} />
-    <div className={styles.boardTitle}><span aria-hidden="true" className={styles.boardIcon}>▢</span><h2>{board.title}</h2></div>
+    <div className={styles.boardTitle}><span aria-hidden="true" className={styles.boardIcon}>▢</span><h2><button type="button" className={styles.boardTitleButton} aria-haspopup="dialog" onClick={() => setExpanded(true)}>{board.title}</button></h2></div>
     <div className={styles.progressLabel}><span>{completed} de {board.tasks.length} completadas</span><span>{percent}%</span></div>
     <div className={styles.track} role="progressbar" aria-label={`Progreso de ${board.title}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}><div className={styles.fill} style={{ width: `${percent}%` }} /></div>
     <BoardTaskList tasks={board.tasks.slice(0, 4)} pending={pending} onToggle={onToggle} onDeleteTask={onDeleteTask} />

@@ -41,6 +41,9 @@
 .sand { --board-accent:#b8a995; }
 .boardTitle { padding-right:30px; display:flex; align-items:flex-start; gap:10px; }
 .boardTitle h2 { margin:0; font-size:16px; line-height:1.5; font-weight:500; overflow-wrap:anywhere; }
+.boardTitleButton { padding:0; border:0; background:transparent; color:inherit; font:inherit; text-align:left; overflow-wrap:anywhere; cursor:pointer; }
+.boardTitleButton:hover { color:var(--board-accent); }
+.boardTitleButton:focus-visible { outline:2px solid var(--board-accent); outline-offset:4px; border-radius:4px; }
 .boardIcon { color:var(--board-accent); }
 .progressLabel { display:flex; justify-content:space-between; gap:10px; margin:22px 0 9px; font-size:12px; color:var(--muted); }
 .track { height:3px; background:#36353c; border-radius:8px; overflow:hidden; }
