@@ -17,6 +17,9 @@
 /.next/
 /out/
 
+# local design previews
+/output/
+
 # production
 /build
 

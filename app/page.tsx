@@ -4,18 +4,15 @@ import { supabase } from "../lib/supabase";
 import { useState, useEffect } from "react";
 import { Toaster, useToast } from "./components/toast";
 import { AuthScreen } from "./components/auth-screen";
-type Tarea = {
-  id: number;
-  titulo: string;
-  completada: boolean;
-};
-
+import { WorkspaceShell } from "./components/workspace/workspace-shell";
+import { ExistingTasksView, type Tarea } from "./components/workspace/existing-tasks-view";
 export default function Home() {
   const { toasts, notify, dismiss } = useToast();
   const [usuario, setUsuario] = useState<User | null>(null);
   const [tarea, setTarea] = useState("");
   const [listaTareas, setListaTareas] = useState<Tarea[]>([]);
   const [loadingSession, setLoadingSession] = useState(true);
+  const usuarioId = usuario?.id;
   useEffect(() => {
     async function obtenerSesion() {
       const { data, error } = await supabase.auth.getSession();
@@ -45,7 +42,7 @@ export default function Home() {
     let cancelado = false;
 
     async function cargarTareas() {
-      if (!usuario) {
+      if (!usuarioId) {
         setListaTareas([]);
         return;
       }
@@ -75,7 +72,7 @@ export default function Home() {
     return () => {
       cancelado = true;
     };
-  }, [usuario?.id]);
+  }, [usuarioId]);
   async function agregarTarea() {
     if (tarea.trim() === "") {
       return;
@@ -190,121 +187,11 @@ export default function Home() {
       {loadingSession ? (
         <main className="flex min-h-screen items-center justify-center text-sm text-zinc-400" role="status">Cargando tu espacio…</main>
       ) : !usuario ? <AuthScreen notify={notify} /> : (
-      <main className="mx-auto flex min-h-screen w-full max-w-2xl flex-col px-6 py-12">
-
-        <div className="flex flex-col gap-6 rounded-2xl border border-zinc-800 bg-zinc-900 p-8 shadow-2xl">
-          <h1 className="text-4xl font-bold text-white">
-            Mi ToDo App
-          </h1>
-          <p className="text-zinc-400">
-            Organiza tus tareas y mantén el control de tus pendientes.
-          </p>
-          {usuario && (
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium text-violet-400">
-                  ● Sesión iniciada
-                </p>
-
-                <p className="mt-1 break-all text-sm text-zinc-400">
-                  {usuario.email}
-                </p>
-              </div>
-
-              <button
-                className="cursor-pointer rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 transition-colors hover:bg-zinc-800"
-                onClick={cerrarSesion}
-              >
-                Cerrar sesión
-              </button>
-            </div>
-          )}
-          {usuario && (
-            <div className="flex flex-col gap-5">
-              <div className="border-t border-zinc-700 pt-6">
-                <h2 className="text-2xl font-semibold text-white">
-                  Mis tareas
-                </h2>
-                <p className="mt-2 text-sm text-zinc-400">
-                  Agrega nuevas tareas y organiza tus pendientes.
-                </p>
-              </div>
-              <input
-                type="text"
-                placeholder="Nueva tarea"
-                value={tarea}
-                onChange={(event) => setTarea(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.nativeEvent.isComposing) {
-                    agregarTarea();
-                  }
-                }}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 p-3 text-white placeholder:text-zinc-400 outline-none focus:border-violet-500"
-              />
-              <button className="bg-violet-600 hover:bg-violet-500 text-white px-4 py-3 rounded-lg cursor-pointer transition-colors"
-                onClick={agregarTarea}
-              >
-                Agregar tarea
-              </button>
-              <ul className="flex flex-col gap-3">
-                {listaTareas.map((item) => (
-                  <li
-                    key={item.id}
-                    className="flex items-center justify-between gap-4 rounded-xl border border-zinc-700 bg-zinc-800 p-4"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={item.completada}
-                        onChange={() => cambiarEstado(item.id)}
-                        className="h-5 w-5 shrink-0 cursor-pointer accent-violet-600"
-                      />
-
-                      <span
-                        className={`break-words ${item.completada
-                          ? "text-zinc-500 line-through"
-                          : "text-zinc-100"
-                          }`}
-                      >
-                        {item.titulo}
-                      </span>
-                    </div>
-
-                    <button
-                      className="shrink-0 cursor-pointer rounded-lg px-3 py-2 text-sm text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-300"
-                      onClick={() => eliminarTarea(item.id)}
-                    >
-                      Eliminar
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-xl border border-zinc-700 bg-zinc-800 p-4 text-center">
-                  <p className="text-sm text-zinc-400">Total</p>
-                  <p className="mt-2 text-2xl font-bold text-white">
-                    {listaTareas.length}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-zinc-700 bg-zinc-800 p-4 text-center">
-                  <p className="text-sm text-zinc-400">Completadas</p>
-                  <p className="mt-2 text-2xl font-bold text-violet-400">
-                    {listaTareas.filter((item) => item.completada).length}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-zinc-700 bg-zinc-800 p-4 text-center">
-                  <p className="text-sm text-zinc-400">Pendientes</p>
-                  <p className="mt-2 text-2xl font-bold text-white">
-                    {listaTareas.filter((item) => !item.completada).length}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </main >
+        <WorkspaceShell key={usuario.id} userId={usuario.id} email={usuario.email} onSignOut={cerrarSesion}
+          taskSummary={{ total: listaTareas.length, completed: listaTareas.filter((item) => item.completada).length }}>
+          <ExistingTasksView tarea={tarea} setTarea={setTarea} listaTareas={listaTareas}
+            agregarTarea={agregarTarea} cambiarEstado={cambiarEstado} eliminarTarea={eliminarTarea} />
+        </WorkspaceShell>
       )}
     </div >
   );
