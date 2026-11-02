@@ -116,8 +116,9 @@ proyecto remoto.
 
 Mis tareas abre en Pendientes y permite ver Completadas o Todas y filtrar por
 tablero. Las etiquetas muestran nombre y color estable del tablero; el mismo
-color se usa en su tarjeta. Los colores pueden repetirse, por eso el nombre
-siempre está visible. El resumen lateral cuenta todas las tareas, independientemente
+color se usa en su tarjeta. Los primeros diez tableros usan colores distintos; después la paleta se reutiliza.
+La asignación es consistente entre ambas vistas; al eliminar tableros puede
+reasignarse un color para resolver colisiones. El nombre siempre está visible. El resumen lateral cuenta todas las tareas, independientemente
 del filtro.
 
 Se pueden eliminar tareas desde Tableros y Mis tareas con confirmación. La app

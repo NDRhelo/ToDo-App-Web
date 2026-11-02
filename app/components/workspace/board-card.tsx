@@ -1,17 +1,16 @@
 import type { CSSProperties } from "react";
-import { boardColor } from "@/lib/board-color";
 import { TaskDeleteButton } from "./task-delete-button";
 import type { Board } from "@/lib/board-types";
 import { BoardActions } from "./board-actions";
 import { InlineCreateForm } from "./inline-create-form";
 import styles from "./workspace.module.css";
 
-export function BoardCard({ board, onToggle, onAddTask, onRename, onDelete, onDeleteTask, pending }: {
-  onDeleteTask: (taskId: string) => Promise<boolean>; board: Board; pending: string | null; onRename: (title: string) => Promise<boolean>; onDelete: () => Promise<boolean>; onToggle: (taskId: string) => Promise<boolean>; onAddTask: (title: string) => Promise<boolean>;
+export function BoardCard({ board, color, onToggle, onAddTask, onRename, onDelete, onDeleteTask, pending }: {
+  color: string; onDeleteTask: (taskId: string) => Promise<boolean>; board: Board; pending: string | null; onRename: (title: string) => Promise<boolean>; onDelete: () => Promise<boolean>; onToggle: (taskId: string) => Promise<boolean>; onAddTask: (title: string) => Promise<boolean>;
 }) {
   const completed = board.tasks.filter((task) => task.completed).length;
   const percent = board.tasks.length ? Math.round(completed / board.tasks.length * 100) : 0;
-  return <article className={`${styles.board} ${board.accent === "violet" ? "" : styles[board.accent]}`} style={{ "--board-accent": boardColor(board.id) } as CSSProperties} aria-label={board.title}>
+  return <article className={`${styles.board} ${board.accent === "violet" ? "" : styles[board.accent]}`} style={{ "--board-accent": color } as CSSProperties} aria-label={board.title}>
     <BoardActions busy={pending !== null} board={board} onRename={onRename} onDelete={onDelete} />
     <div className={styles.boardTitle}><span aria-hidden="true" className={styles.boardIcon}>▢</span><h2>{board.title}</h2></div>
     <div className={styles.progressLabel}><span>{completed} de {board.tasks.length} completadas</span><span>{percent}%</span></div>

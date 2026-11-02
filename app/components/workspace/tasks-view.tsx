@@ -1,6 +1,6 @@
 import { useRef, useState, type CSSProperties } from "react";
 import type { Board } from "@/lib/board-types";
-import { boardColor } from "@/lib/board-color";
+import { boardColors } from "@/lib/board-color";
 import { TaskDeleteButton } from "./task-delete-button";
 import styles from "./workspace.module.css";
 
@@ -12,6 +12,7 @@ export function TasksView({ boards, loading, loadError, operationError, pending,
   onToggle: (boardId: string, taskId: string) => Promise<boolean>;
   onDeleteTask: (boardId: string, taskId: string) => Promise<boolean>;
 }) {
+  const colors = boardColors(boards);
   const [filter, setFilter] = useState<Filter>("pending");
   const [boardId, setBoardId] = useState("");
   const filterRef = useRef<HTMLButtonElement>(null);
@@ -53,7 +54,7 @@ export function TasksView({ boards, loading, loadError, operationError, pending,
       </p> : visible.length === 0 ? <p className={styles.empty}>No hay tareas con estos filtros.</p> :
         <ul className={styles.taskList} aria-label="Lista de tareas">
           {visible.map(({ board, task }) => <li key={task.id} className={styles.taskListRow}
-            style={{ "--board-accent": boardColor(board.id) } as CSSProperties}>
+            style={{ "--board-accent": colors.get(board.id) } as CSSProperties}>
             <label className={styles.task}>
               <input type="checkbox" checked={task.completed} disabled={pending !== null}
                 aria-busy={pending === `toggle:${task.id}`} onChange={() => toggle(board.id, task.id)} />
