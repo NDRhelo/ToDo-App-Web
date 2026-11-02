@@ -55,3 +55,11 @@ export async function setSubtaskCompleted(id: string, completed: boolean): Promi
   if (!data) throw new Error("No se pudo confirmar el estado de la subtarea.");
   return data;
 }
+
+export async function deleteSubtask(boardId: string, id: string): Promise<void> {
+  const { data, error } = await supabase.from("subtasks")
+    .delete().eq("id", id).eq("board_id", boardId)
+    .select("id").single<{ id: string }>();
+  if (error) throw error;
+  if (!data) throw new Error("La tarea no existe o no tienes acceso para eliminarla.");
+}

@@ -8,7 +8,7 @@ import { demoBoards } from "@/lib/demo-boards";
 import type { Board } from "@/lib/board-types";
 
 vi.mock("@/lib/boards", () => ({
-  listBoards: vi.fn(), createBoard: vi.fn(), renameBoard: vi.fn(), deleteBoard: vi.fn(), createSubtask: vi.fn(), setSubtaskCompleted: vi.fn(),
+  listBoards: vi.fn(), createBoard: vi.fn(), renameBoard: vi.fn(), deleteBoard: vi.fn(), createSubtask: vi.fn(), setSubtaskCompleted: vi.fn(), deleteSubtask: vi.fn(),
 }));
 let stored: Board[];
 beforeEach(() => {
@@ -28,6 +28,10 @@ beforeEach(() => {
   vi.mocked(api.createSubtask).mockImplementation(async (id, title) => {
     const task = { id: crypto.randomUUID(), title, completed: false };
     stored.find((board) => board.id === id)!.tasks.push(task); return structuredClone(task);
+  });
+  vi.mocked(api.deleteSubtask).mockImplementation(async (boardId, id) => {
+    const board = stored.find((board) => board.id === boardId)!;
+    board.tasks = board.tasks.filter((task) => task.id !== id);
   });
   vi.mocked(api.setSubtaskCompleted).mockImplementation(async (id, completed) => {
     const task = stored.flatMap((board) => board.tasks).find((task) => task.id === id)!;
@@ -95,7 +99,8 @@ describe("Espacio de trabajo", () => {
     await user.click(screen.getByRole("button", { name: "Agregar tarea" }));
     await user.type(screen.getByRole("textbox", { name: "Nueva tarea" }), "Leer{Enter}");
     await user.click(screen.getByRole("button", { name: "Mis tareas" }));
-    expect(within(screen.getByRole("region", { name: "Personal" })).getByRole("checkbox", { name: "Leer" })).toBeVisible();
+    expect(screen.getByRole("checkbox", { name: "Leer" })).toBeVisible();
+    expect(within(screen.getByRole("list", { name: "Lista de tareas" })).getByText("Personal")).toBeVisible();
     expect(screen.getByRole("region", { name: "Resumen de mis tareas" })).toHaveTextContent("Total1");
     await user.click(screen.getByRole("button", { name: "Tableros" }));
     await user.click(screen.getByLabelText("Opciones de Personal"));
@@ -104,6 +109,58 @@ describe("Espacio de trabajo", () => {
     await user.click(screen.getByRole("button", { name: "Mis tareas" }));
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Resumen de mis tareas" })).toHaveTextContent("Total0");
+  });
+
+  it("filtra por estado y tablero e identifica el tablero en cada fila", async () => {
+    const { user } = await setup();
+    await user.click(screen.getByRole("button", { name: "Mis tareas" }));
+    expect(screen.getAllByRole("checkbox")).toHaveLength(6);
+    expect(screen.getByRole("button", { name: "Pendientes" })).toHaveAttribute("aria-pressed", "true");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Tablero" }), stored[0].id);
+    const expected = stored[0].tasks.filter((task) => !task.completed);
+    expect(screen.getAllByRole("checkbox")).toHaveLength(expected.length);
+    await user.click(screen.getByRole("button", { name: "Todas" }));
+    expect(screen.getAllByRole("checkbox")).toHaveLength(stored[0].tasks.length);
+    for (const row of within(screen.getByRole("list", { name: "Lista de tareas" })).getAllByRole("listitem")) {
+      expect(within(row).getByText(stored[0].title)).toBeVisible();
+    }
+    await user.selectOptions(screen.getByRole("combobox", { name: "Tablero" }), "");
+    await user.click(screen.getByRole("button", { name: "Completadas" }));
+    expect(screen.getAllByRole("checkbox")).toHaveLength(4);
+  });
+
+  it("permite cancelar y elimina una tarea del tablero y de Mis tareas", async () => {
+    const { user } = await setup();
+    await user.click(screen.getByRole("button", { name: "Eliminar tarea: Repasar matemáticas" }));
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(api.deleteSubtask).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Eliminar tarea: Repasar matemáticas" }));
+    await user.click(screen.getByRole("button", { name: "Confirmar eliminación de tarea" }));
+    expect(screen.queryByRole("checkbox", { name: "Repasar matemáticas" })).not.toBeInTheDocument();
+    expect(api.deleteSubtask).toHaveBeenCalledWith(stored[0].id, "math");
+    await user.click(screen.getByRole("button", { name: "Mis tareas" }));
+    await user.click(screen.getByRole("button", { name: "Todas" }));
+    expect(screen.getAllByRole("checkbox")).toHaveLength(9);
+    expect(screen.queryByText("Repasar matemáticas")).not.toBeInTheDocument();
+  });
+
+  it("mantiene la tarea mientras elimina, bloquea duplicados y permite reintentar si falla", async () => {
+    const { user } = await setup();
+    let reject!: (error: Error) => void;
+    vi.mocked(api.deleteSubtask).mockReturnValueOnce(new Promise((_, fail) => { reject = fail; }));
+    await user.click(screen.getByRole("button", { name: "Mis tareas" }));
+    await user.click(screen.getByRole("button", { name: "Eliminar tarea: Repasar matemáticas" }));
+    await user.click(screen.getByRole("button", { name: "Confirmar eliminación de tarea" }));
+    expect(screen.getByRole("checkbox", { name: "Repasar matemáticas" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Eliminando…" })).toBeDisabled();
+    expect(api.deleteSubtask).toHaveBeenCalledTimes(1);
+    await act(async () => reject(new Error("Offline")));
+    expect(screen.getByRole("alert")).toHaveTextContent("No se pudo eliminar la tarea");
+    expect(screen.getByRole("checkbox", { name: "Repasar matemáticas" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Confirmar eliminación de tarea" }));
+    expect(screen.queryByText("Repasar matemáticas")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Tableros" }));
+    expect(screen.queryByText("Repasar matemáticas")).not.toBeInTheDocument();
   });
 
   it("rechaza títulos con solo espacios y permite cancelar con Escape", async () => {
@@ -124,6 +181,7 @@ describe("Espacio de trabajo", () => {
     await user.click(screen.getByRole("button", { name: "Mis tareas" }));
     expect(screen.getByRole("heading", { name: "Mis tareas" })).toBeVisible();
     expect(screen.getByRole("region", { name: "Resumen de mis tareas" })).toHaveTextContent("Total10");
+    await user.click(screen.getByRole("button", { name: "Todas" }));
     expect(screen.getByRole("checkbox", { name: "Repasar matemáticas" })).toBeChecked();
     await user.click(screen.getByRole("checkbox", { name: "Repasar matemáticas" }));
     await user.click(screen.getByRole("button", { name: "Tableros" }));

@@ -57,6 +57,17 @@ describe("Contrato de persistencia y permisos por columna", () => {
     expect(q.select).toHaveBeenCalledWith("id");
     expect(q.single).toHaveBeenCalled();
   });
+  it("elimina una tarea únicamente dentro de su tablero y exige confirmación", async () => {
+    const q = query({ id: "s" });
+    await api.deleteSubtask("b", "s");
+    expect(mocks.from).toHaveBeenCalledWith("subtasks");
+    expect(q.eq).toHaveBeenCalledWith("id", "s");
+    expect(q.eq).toHaveBeenCalledWith("board_id", "b");
+    query(null);
+    await expect(api.deleteSubtask("b", "s")).rejects.toThrow(/no existe/);
+    query(null, new Error("RLS denied"));
+    await expect(api.deleteSubtask("foreign", "s")).rejects.toThrow("RLS denied");
+  });
   it("no considera exitosa una operación sin filas o con error RLS", async () => {
     query(null);
     await expect(api.deleteBoard("missing")).rejects.toThrow(/no existe/);

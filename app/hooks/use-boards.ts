@@ -52,6 +52,9 @@ export function useBoards(userId: string) {
     rename: (id: string, title: string) => run(`rename:${id}`, "No se pudo cambiar el nombre.", () => api.renameBoard(id, title), (saved, current) => current.map((board) => board.id === id ? { ...board, ...saved } : board)),
     remove: (id: string) => run(`delete:${id}`, "No se pudo eliminar el tablero.", () => api.deleteBoard(id), (_, current) => current.filter((board) => board.id !== id)),
     addTask: (id: string, title: string) => run(`add:${id}`, "No se pudo agregar la subtarea.", () => api.createSubtask(id, title), (task, current) => current.map((board) => board.id === id ? { ...board, tasks: [...board.tasks, task] } : board)),
+    removeTask: (boardId: string, taskId: string) => run(`delete-task:${taskId}`, "No se pudo eliminar la tarea.",
+      () => api.deleteSubtask(boardId, taskId),
+      (_, current) => current.map((board) => board.id === boardId ? { ...board, tasks: board.tasks.filter((task) => task.id !== taskId) } : board)),
     toggle: (boardId: string, taskId: string) => {
       const task = boards.find((board) => board.id === boardId)?.tasks.find((task) => task.id === taskId);
       if (!task) return Promise.resolve(false);

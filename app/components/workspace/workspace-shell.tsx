@@ -64,12 +64,12 @@ function Workspace({ userId, email, onSignOut }: WorkspaceProps) {
     <div className={styles.shell}>
       <WorkspaceSidebar view={view} onNavigate={(next) => { setView(next); setAnnouncement(next === "boards" ? "Vista de tableros" : "Vista de tus tareas guardadas"); }} boardCount={boards.length} unavailable={loading || !!loadError} summary={boardSummary} />
       <main id="workspace-content" className={styles.main}>
-        {view === "boards" ? <BoardsView boards={boards} loading={loading} loadError={loadError} operationError={operationError} pending={pending} onRetry={retry}
+        {view === "boards" ? <BoardsView boards={boards} loading={loading} loadError={loadError} operationError={operationError} pending={pending} onRetry={retry} onDeleteTask={(id, taskId) => announce(actions.removeTask(id, taskId), "Tarea eliminada.")}
           onCreate={(title) => announce(actions.create(title), "Tablero guardado.")}
           onRename={(id, title) => announce(actions.rename(id, title), "Nombre guardado.")}
           onDelete={(id) => announce(actions.remove(id), "Tablero y subtareas eliminados.")}
           onAddTask={(id, title) => announce(actions.addTask(id, title), "Subtarea guardada.")}
-          onToggle={(id, taskId) => announce(actions.toggle(id, taskId), "Progreso guardado.")} /> : <TasksView boards={boards} loading={loading} loadError={loadError} operationError={operationError} pending={pending} onRetry={retry} onOpenBoards={() => setView("boards")} onToggle={(id, taskId) => announce(actions.toggle(id, taskId), "Progreso guardado.")} />}
+          onToggle={(id, taskId) => announce(actions.toggle(id, taskId), "Progreso guardado.")} /> : <TasksView boards={boards} loading={loading} loadError={loadError} operationError={operationError} pending={pending} onRetry={retry} onDeleteTask={(id, taskId) => announce(actions.removeTask(id, taskId), "Tarea eliminada.")} onOpenBoards={() => setView("boards")} onToggle={(id, taskId) => announce(actions.toggle(id, taskId), "Progreso guardado.")} />}
         <p role="status" className="sr-only">{announcement}</p>
       </main>
     </div>

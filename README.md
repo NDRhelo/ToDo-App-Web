@@ -74,7 +74,7 @@ La vista Tableros consulta `public.boards` y sus `public.subtasks` mediante el c
 
 Los identificadores, el propietario y las fechas se generan en la base de datos. La interfaz cambia solo después de una respuesta confirmada; conserva el texto si falla una escritura y ofrece reintentar si falla la carga. Las cuentas sin tableros muestran un estado vacío: no se insertan ejemplos. `lib/demo-boards.ts` se utiliza exclusivamente como fixture de pruebas.
 
-La navegación Mis tareas muestra las mismas subtasks de los tableros, agrupadas por tablero. Las tareas se crean dentro de un tablero; ambas vistas comparten estado y estadísticas. No se consulta la tabla tasks. El progreso se calcula desde las subtareas confirmadas. Los cambios de otra pestaña se recuperan al recargar; no se utiliza Realtime.
+La navegación Mis tareas muestra las mismas subtasks de los tableros, en una lista con etiquetas de tablero. Las tareas se crean dentro de un tablero; ambas vistas comparten estado y estadísticas. No se consulta la tabla tasks. El progreso se calcula desde las subtareas confirmadas. Los cambios de otra pestaña se recuperan al recargar; no se utiliza Realtime.
 
 - `lib/boards.ts`: consultas y escrituras con las columnas permitidas.
 - `app/hooks/use-boards.ts`: carga, errores y operaciones pendientes.
@@ -112,3 +112,19 @@ tarea y abrir “Mis tareas”. Completarla y volver a Tableros: debe conservar 
 estado. Recargar y comprobar persistencia. Con otra cuenta, el espacio debe
 estar vacío. Las pruebas automatizadas simulan Supabase; no verifican el
 proyecto remoto.
+
+
+Mis tareas abre en Pendientes y permite ver Completadas o Todas y filtrar por
+tablero. Las etiquetas muestran nombre y color estable del tablero; el mismo
+color se usa en su tarjeta. Los colores pueden repetirse, por eso el nombre
+siempre está visible. El resumen lateral cuenta todas las tareas, independientemente
+del filtro.
+
+Se pueden eliminar tareas desde Tableros y Mis tareas con confirmación. La app
+solo las retira al recibir la fila eliminada desde Supabase; si falla el borrado,
+conserva la tarea y permite reintentar. Usa los permisos DELETE y RLS existentes
+en subtasks; no requiere una migración nueva.
+
+Para probar: cancelar un borrado y comprobar que la tarea sigue; confirmar otro
+y comprobar que desaparece de ambas vistas y del resumen. Recargar para verificar
+persistencia. Probar también los filtros y una lista sin coincidencias.
