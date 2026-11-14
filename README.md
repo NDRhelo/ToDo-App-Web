@@ -70,13 +70,15 @@ Supabase está simulado: las pruebas no requieren `.env.local`, no crean cuentas
 
 ## Espacio de trabajo por tableros
 
-La vista Tableros consulta `public.boards` y sus `public.subtasks` mediante el cliente actual de Supabase y la sesión autenticada. Permite crear, renombrar y eliminar tableros, agregar subtareas y completar/descompletar su estado. La migración `supabase/migrations/20261101000100_create_boards_and_subtasks.sql` define los permisos, RLS y la eliminación en cascada.
+La vista Tableros consulta `public.boards` y sus `public.subtasks` mediante la API propia de Next.js y la sesión autenticada. Permite crear, renombrar y eliminar tableros, agregar subtareas y completar/descompletar su estado. La migración `supabase/migrations/20261101000100_create_boards_and_subtasks.sql` define los permisos, RLS y la eliminación en cascada.
 
 Los identificadores, el propietario y las fechas se generan en la base de datos. La interfaz cambia solo después de una respuesta confirmada; conserva el texto si falla una escritura y ofrece reintentar si falla la carga. Las cuentas sin tableros muestran un estado vacío: no se insertan ejemplos. `lib/demo-boards.ts` se utiliza exclusivamente como fixture de pruebas.
 
 La navegación Mis tareas muestra las mismas subtasks de los tableros, en una lista con etiquetas de tablero. Las tareas se crean dentro de un tablero; ambas vistas comparten estado y estadísticas. No se consulta la tabla tasks. El progreso se calcula desde las subtareas confirmadas. Los cambios de otra pestaña se recuperan al recargar; no se utiliza Realtime.
 
-- `lib/boards.ts`: consultas y escrituras con las columnas permitidas.
+- `lib/boards.ts`: cliente HTTP de la API propia.
+- `lib/server/boards.ts`: consultas y escrituras de Supabase ejecutadas en el servidor.
+- `lib/server/api.ts`: verificación de token, validación y errores HTTP.
 - `app/hooks/use-boards.ts`: carga, errores y operaciones pendientes.
 - `tests/workspace.test.tsx`: flujos de interfaz, errores, progreso, navegación y cambio de cuenta.
 - `tests/boards-api.test.ts`: payloads, consultas y comprobación de filas confirmadas.
@@ -135,10 +137,60 @@ Las tarjetas de tablero muestran hasta cuatro tareas. Si tienen más, “Ver tod
 las tareas” abre un modal con el color del tablero, progreso total y todas sus
 tareas. Permite completar, eliminar y agregar tareas sobre el mismo estado
 compartido. El modal tiene desplazamiento propio, bloqueo del fondo y cierre
-con Cerrar o Escape, y devuelve el foco al abrir/cerrar. El progreso siempre se
+con Cerrar, Escape o clic fuera, y devuelve el foco al abrir/cerrar. El progreso siempre se
 calcula sobre todas las tareas, incluso las ocultas en la tarjeta.
 
 Verificar visualmente en escritorio y móvil: abrir un tablero con cinco tareas,
 recorrer el modal con Tab, cerrarlo con Escape y comprobar el foco; completar,
 agregar y borrar tareas y revisar su persistencia después de recargar. Las pruebas
 usan una simulación del diálogo de jsdom; no verifican la capa modal del navegador.
+
+
+## Backend y API propios
+
+Flujo de datos: navegador → API de Next.js en Vercel → Supabase (Postgres + RLS).
+El registro, inicio/cierre de sesión y renovación de sesión siguen usando Supabase
+Auth desde el navegador. Las operaciones sobre tableros y tareas pasan por la API
+propia. No se requiere un servidor Express, otro alojamiento ni una migración SQL.
+
+Cada petición requiere `Authorization: Bearer <access_token>` de Supabase Auth.
+El servidor valida el token con `auth.getUser`, crea un cliente aislado para esa
+petición y conserva RLS con el token del usuario. El propietario se obtiene del
+token verificado; la API no acepta `user_id`, IDs ni fechas en los cuerpos.
+No configurar una clave `service_role`: esta implementación usa la clave pública
+y los permisos existentes. Supabase continúa exponiendo su Data API con RLS;
+esta capa no deshabilita el acceso directo autorizado de otros clientes.
+
+| Método | Endpoint | Cuerpo JSON | Resultado |
+| --- | --- | --- | --- |
+| GET | `/api/boards` | — | 200: tableros con `tasks` |
+| POST | `/api/boards` | `{ "title": "Compras" }` | 201: tablero creado |
+| PATCH | `/api/boards/{boardId}` | `{ "title": "Nuevo nombre" }` | 200: tablero |
+| DELETE | `/api/boards/{boardId}` | — | 204 |
+| POST | `/api/boards/{boardId}/tasks` | `{ "title": "Comprar pan" }` | 201: tarea |
+| PATCH | `/api/tasks/{taskId}` | `{ "completed": true }` | 200: tarea |
+| DELETE | `/api/boards/{boardId}/tasks/{taskId}` | — | 204 |
+
+Los títulos se recortan y validan (100 caracteres para tableros y 160 para tareas).
+Se rechazan campos adicionales, JSON inválido, UUID inválidos y estados que no
+sean booleanos. Los errores usan `{ "error": "mensaje" }` y estados 400, 401,
+403, 404 o 500. Las respuestas autenticadas llevan `Cache-Control: private, no-store`.
+
+### Desplegar en Vercel
+
+1. Mantener el proyecto conectado al repositorio con el preset Next.js y el
+   comando de compilación `npm run build` (no usar exportación estática).
+2. Configurar `NEXT_PUBLIC_SUPABASE_URL` y
+   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` para Production y los entornos Preview
+   que se utilicen. Son las mismas variables actuales, sin nuevas credenciales.
+3. Desplegar la rama con estos cambios. Vercel ejecuta los Route Handlers como
+   funciones del mismo proyecto y dominio; no hace falta configurar CORS.
+4. Iniciar sesión, crear un tablero y una tarea, cambiar su estado y recargar.
+   En Network, verificar peticiones a `/api/boards` y `/api/tasks/...`.
+5. Repetir con otra cuenta y comprobar aislamiento. Sin token, una petición a
+   `/api/boards` debe devolver 401.
+
+Las pruebas de rutas simulan Supabase y cubren autenticación, propietario
+verificado, validación y errores; las de persistencia verifican consultas y
+columnas permitidas. No sustituyen una prueba real de RLS en Supabase ni verifican
+un despliegue remoto. Esta modificación no aplica migraciones ni despliega por sí sola.

@@ -1,0 +1,65 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Board, Subtask } from "../board-types";
+
+type BoardRecord = Omit<Board, "tasks">;
+
+export async function listBoards(supabase: SupabaseClient, userId: string): Promise<Board[]> {
+  const { data, error } = await supabase.from("boards")
+    .select("id,title,accent,subtasks(id,title,completed)")
+    .eq("user_id", userId)
+    .order("created_at").order("id")
+    .order("created_at", { referencedTable: "subtasks" })
+    .order("id", { referencedTable: "subtasks" })
+    .returns<(BoardRecord & { subtasks: Subtask[] })[]>();
+  if (error) throw error;
+  if (!data) throw new Error("No se recibió una respuesta de tableros.");
+  return data.map(({ subtasks, ...board }) => ({ ...board, tasks: subtasks }));
+}
+
+export async function createBoard(supabase: SupabaseClient, title: string): Promise<Board> {
+  const { data, error } = await supabase.from("boards")
+    .insert({ title, accent: "violet" }).select("id,title,accent").single<BoardRecord>();
+  if (error) throw error;
+  if (!data) throw new Error("No se pudo confirmar la creación del tablero.");
+  return { ...data, tasks: [] };
+}
+
+export async function renameBoard(supabase: SupabaseClient, id: string, title: string): Promise<BoardRecord> {
+  const { data, error } = await supabase.from("boards")
+    .update({ title }).eq("id", id).select("id,title,accent").single<BoardRecord>();
+  if (error) throw error;
+  if (!data) throw new Error("No se pudo confirmar el cambio de nombre.");
+  return data;
+}
+
+export async function deleteBoard(supabase: SupabaseClient, id: string): Promise<void> {
+  const { data, error } = await supabase.from("boards")
+    .delete().eq("id", id).select("id").single<{ id: string }>();
+  if (error) throw error;
+  if (!data) throw new Error("El tablero no existe o no tienes acceso para eliminarlo.");
+}
+
+export async function createSubtask(supabase: SupabaseClient, boardId: string, title: string): Promise<Subtask> {
+  const { data, error } = await supabase.from("subtasks")
+    .insert({ board_id: boardId, title, completed: false })
+    .select("id,title,completed").single<Subtask>();
+  if (error) throw error;
+  if (!data) throw new Error("No se pudo confirmar la creación de la subtarea.");
+  return data;
+}
+
+export async function setSubtaskCompleted(supabase: SupabaseClient, id: string, completed: boolean): Promise<Subtask> {
+  const { data, error } = await supabase.from("subtasks")
+    .update({ completed }).eq("id", id).select("id,title,completed").single<Subtask>();
+  if (error) throw error;
+  if (!data) throw new Error("No se pudo confirmar el estado de la subtarea.");
+  return data;
+}
+
+export async function deleteSubtask(supabase: SupabaseClient, boardId: string, id: string): Promise<void> {
+  const { data, error } = await supabase.from("subtasks")
+    .delete().eq("id", id).eq("board_id", boardId)
+    .select("id").single<{ id: string }>();
+  if (error) throw error;
+  if (!data) throw new Error("La tarea no existe o no tienes acceso para eliminarla.");
+}
